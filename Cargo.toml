@@ -1,0 +1,8 @@
+[package]
+name = "ether_test"
+version = "0.1.0"
+authors = ["Michal Podhradsky <mpodhradsky@galois.com>"]
+
+[dependencies]
+tun-tap = "0.1.1"
+ivyrust = {git="https://github.com/paparazzi/ivy-rust"}
