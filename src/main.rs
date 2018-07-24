@@ -7,15 +7,20 @@ use std::thread;
 use std::time::Duration;
 use tun_tap::{Iface, Mode};
 
+// TODO: make configurable
 const AC_ID: u8 = 9;
-/// The packet data. Note that it is prefixed by 4 bytes ‒
-/// two bytes are flags, another two are
-/// protocol. 8, 0 is IPv4, 134, 221 is IPv6.
-/// See <https://en.wikipedia.org/wiki/EtherType#Examples>.
-const OFFSET: usize = 4;
+
+/// Delay between processing messages, to avoid
+/// congesting Pprzlink
+const MSG_DELAY_MS: u64 = 100;
 
 /// 255 bytes - header (8 bytes) = 247 bytes
 /// see https://wiki.paparazziuav.org/wiki/Messages_Format
+/// Minimal MTU is 68 bytes, see RFC 791 at
+/// https://tools.ietf.org/html/rfc791
+/// However, ssh/scp etc. doesn't work with such little (247) MTU
+/// and requires MTU of 576 bytes. One way to handle this is to
+/// internally fragment and reassemble packets.
 const MAX_DATA_LEN: usize = 247;
 
 fn main() {
@@ -37,32 +42,30 @@ fn main() {
     // it to the tap interface
     let writer = thread::spawn(move || {
         let mut cb1 = IvyMessage::new();
-        //cb1.ivy_bind_msg(IvyMessage::callback, String::from("^(\\S*) DL_VALUES (.*)"));
-        cb1.ivy_bind_msg(IvyMessage::callback, String::from("^(\\S*) PAYLOAD (.*)"));
+        cb1.ivy_bind_msg(
+            IvyMessage::callback,
+            String::from("^") + &AC_ID.to_string() + " PAYLOAD (.*)",
+        );
         loop {
-            let mut lock = cb1.data.lock();
-            if let Ok(ref mut data) = lock {
-                if !data.is_empty() {
-                    let payload_raw = &data.pop().unwrap()[1]; // this is now a string of comma separated values
-                    println!("Original paylaod = {}", payload_raw);
-                    let payload_raw: Vec<&str> = payload_raw.split(",").collect();
-                    println!("Split paylaod = {:?}", payload_raw);
-                    let mut payload = vec![];
-                    for byte in payload_raw {
-                        println!("Parsing {}", byte);
-                        match byte.parse::<u8>() {
-                            Ok(val) => payload.push(val),
-                            Err(e) => println!("Error parsing payload: {}", e),
+            {
+                let mut lock = cb1.data.lock();
+                if let Ok(ref mut data) = lock {
+                    if !data.is_empty() {
+                        let payload_raw = &data.pop().unwrap()[0];
+                        let payload_raw: Vec<&str> = payload_raw.split(",").collect();
+                        let mut payload = vec![];
+                        for byte in payload_raw {
+                            match byte.parse::<u8>() {
+                                Ok(val) => payload.push(val),
+                                Err(e) => println!("Error parsing payload: {}", e),
+                            }
                         }
+                        let len = iface_writer.send(&payload).unwrap();
+                        assert!(len == payload.len());
                     }
-                    println!("Parsed payload = {:?}", payload);
-                    println!("Payload len = {}", payload.len());
-                    let len = iface_writer.send(&payload).unwrap();
-                    assert!(len == payload.len());
                 }
             }
-            // TODO: introduce a delay to avoid sending too many messages?
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(MSG_DELAY_MS));
         }
     });
 
@@ -72,19 +75,14 @@ fn main() {
     let reader = thread::spawn(move || {
         let mut buffer = vec![0; MAX_DATA_LEN];
         loop {
-            let size = iface_reader.recv(&mut buffer).unwrap();
-            // TODO: warn if too many data are attempted to be send?
-            println!("Rx bytes: {}", size - OFFSET);
-
+            let _size = iface_reader.recv(&mut buffer).unwrap();
             // now create a message
             let mut msg = "ground_dl PAYLOAD_COMMAND ".to_string() + &AC_ID.to_string() + " ";
-            for byte in buffer[OFFSET..size].iter() {
+            for byte in &buffer {
                 msg = msg + &byte.to_string() + ",";
             }
-            //println!("Sending {}", msg);
             ivyrust::ivy_send_msg(msg);
-            // TODO: introduce a delay to avoid sending too many messages?
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(MSG_DELAY_MS));
         }
     });
 
