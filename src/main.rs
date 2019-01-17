@@ -143,8 +143,10 @@ fn dissassemble_algo(buffer: &[u8], debug: bool, ac_id: u8) -> Vec<String> {
             // update end index, start index is untouched
             end = size - 1;
         }
-        println!("actual start={}, actual end={}", start, end);
-
+        if debug {
+            println!("actual start={}, actual end={}", start, end);
+        }
+        
         // add seq number
         header += seq;
         // now create a message
@@ -213,6 +215,10 @@ fn main() {
                             }
                         }
                         if let Some(msg) = assemble_algo(payload, debug) {
+                            if debug {
+                                println!("To iface len: {}", msg.len());
+                                println!("To iface msg: {:?}",msg);
+                            }
                             let len = iface_writer.send(&msg).unwrap();
                             assert!(len == msg.len());
                         }
@@ -231,7 +237,11 @@ fn main() {
         loop {
             // receive a packet that is up to MAX_DATA_LEN long
             let size = iface_reader.recv(&mut buffer).unwrap();
-
+            if debug {
+                println!("From iface len: {}", size);
+                println!("FRom iface msg: {:?}",&buffer[..size]);
+            }
+            
             let msgs = dissassemble_algo(&buffer[..size], debug, ac_id);
             for msg in msgs {
                 // send ivy message
@@ -336,7 +346,7 @@ mod test {
         }
         let msg = assemble_algo(payload, true).unwrap();
         println!("{:?}",msg);
-        assert_eq!(msg.len(),575);
+        assert_eq!(msg.len(),575    `);
     }
 
     
