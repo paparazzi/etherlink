@@ -25,9 +25,9 @@ const MSG_DELAY_MS: u64 = 100;
 /// However, ssh/scp etc. doesn't work with such little (247) MTU
 /// and requires MTU of 576 bytes. One way to handle this is to
 /// internally fragment and reassemble packets.
-const MAX_PAYLOAD_LEN: usize = 247; // 1 byte header, 246 bytes data
+const MAX_PAYLOAD_LEN: usize = 245; // 1 byte header, 246 bytes data
 
-const MAX_DATA_LEN: usize = 580; // min length that SSH supports
+const MAX_DATA_LEN: usize = 600; // min length that SSH supports
 
 const MORE_FLAGS: u8 = 0x80;
 
@@ -254,6 +254,9 @@ fn main() {
                 if debug {
                     println!("ivy msg = {}",msg);
                 }
+                println!("ivy msg len = {}",msg.len());
+                println!("ivy msg = {}",msg);
+
                 // send ivy message
                 ivyrust::ivy_send_msg(msg);
                 // congestion control, sleep a bit
