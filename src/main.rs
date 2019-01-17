@@ -141,7 +141,7 @@ fn dissassemble_algo(buffer: &[u8], debug: bool, ac_id: u8) -> Vec<String> {
             more = false;
             header = NO_MORE_FLAGS;
             // update end index, start index is untouched
-            end = size - 1;
+            end = size;
         }
         if debug {
             println!("actual start={}, actual end={}", start, end);
@@ -205,7 +205,14 @@ fn main() {
                 let mut lock = cb1.data.lock();
                 if let Ok(ref mut data) = lock {
                     if !data.is_empty() {
+                        if debug {
+                            println!("data={:?}", *data);
+                        }
                         let payload_raw = &data.pop().unwrap()[0];
+                        if debug {
+                            println!("payload raw len = {}", payload_raw.len());
+                            println!("payload raw = {:?}", payload_raw);
+                        }
                         let payload_raw: Vec<&str> = payload_raw.split(",").collect();
                         let mut payload = vec![];
                         for byte in payload_raw {
@@ -244,6 +251,9 @@ fn main() {
             
             let msgs = dissassemble_algo(&buffer[..size], debug, ac_id);
             for msg in msgs {
+                if debug {
+                    println!("ivy msg = {}",msg);
+                }
                 // send ivy message
                 ivyrust::ivy_send_msg(msg);
                 // congestion control, sleep a bit
@@ -263,6 +273,7 @@ mod test {
     use super::*;
 
     const AC_ID: u8 = 9;
+
 
     #[test]
     fn test_single_assembly() {
@@ -390,5 +401,14 @@ mod test {
         println!("{}", res[1]);
         println!("{}", res[2]);
         assert_eq!(res.len(), 3);
+    }
+
+
+    #[test]
+    fn test_ping() {
+        let buf = [0, 0, 8, 6, 255, 255, 255, 255, 255, 255, 54, 181, 4, 231, 234, 212, 8, 6, 0, 1, 8, 0, 6, 4, 0, 1, 54, 181, 4, 231, 234, 212, 192, 168, 69, 1, 0, 0, 0, 0, 0, 0, 192, 168, 69, 2];
+        let res = dissassemble_algo(&buf, true, AC_ID);
+        println!("res={:?}",res);
+        assert_eq!(res.len(), 1);
     }
 }
