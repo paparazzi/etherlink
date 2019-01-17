@@ -1,0 +1,14 @@
+name: etherlink
+version: "1.0"
+author: Michal Podhradsky <mpodhradsky@galois.com>
+about: Ethernet over Pprzlink
+args:
+    - AC_ID:
+        help: ID of the connecting aircraft
+        required: true
+        index: 1
+    - debug:
+        short: d
+        multiple: false
+        help: Emable debug prints
+
