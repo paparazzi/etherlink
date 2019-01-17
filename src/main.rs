@@ -346,7 +346,7 @@ mod test {
         }
         let msg = assemble_algo(payload, true).unwrap();
         println!("{:?}",msg);
-        assert_eq!(msg.len(),575    `);
+        assert_eq!(msg.len(),575);
     }
 
     
